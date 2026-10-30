@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SonicPulse - 互動式音樂音效與視覺工作台</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Inter:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#050608',
+                            panel: 'rgba(15, 23, 42, 0.75)',
+                            border: 'rgba(56, 189, 248, 0.25)',
+                            neonBlue: '#00f0ff',
+                            neonPink: '#ff007f',
+                            neonPurple: '#a855f7',
+                            neonGreen: '#00ff88'
+                        }
+                    },
+                    fontFamily: {
+                        orbitron: ['Orbitron', 'sans-serif'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #050608;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 127, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.05) 0%, transparent 60%);
+            background-attachment: fixed;
+        }
+
+        .glass-panel {
+            background: rgba(13, 17, 28, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-panel-glow {
+            border: 1px solid rgba(0, 240, 255, 0.35);
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(0, 240, 255, 0.05);
+        }
+
+        .cyber-button {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cyber-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(60deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transform: rotate(30deg);
+            transition: 0.5s;
+        }
+
+        .cyber-button:hover::after {
+            left: 100%;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(8, 9, 17, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.6);
+        }
+
+        /* Pad Key Styles */
+        .synth-key {
+            transition: all 0.1s ease;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+        }
+        .synth-key.active {
+            transform: translateY(2px) scale(0.97);
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        /* Sequencer Grid Steps */
+        .step-btn {
+            width: 100%;
+            height: 38px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.15s ease;
+        }
+        .step-btn.active {
+            background: #00f0ff;
+            border-color: #ffffff;
+            box-shadow: 0 0 12px #00f0ff;
+        }
+        .step-btn.current-step {
+            border-color: #ff007f !important;
+            box-shadow: 0 0 10px #ff007f;
+        }
+
+        /* Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            height: 6px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #00f0ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00f0ff;
+            transition: all 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            scale: 1.2;
+            background: #ffffff;
+        }
+
+        /* Custom Modal */
+        .modal-overlay {
+            background: rgba(5, 6, 8, 0.85);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-200 antialiased selection:bg-cyan-500 selection:text-black">
+
+    <!-- Top Navigation -->
+    <header class="w-full glass-panel border-b border-cyan-500/20 sticky top-0 z-40 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid font-bold fa-wave-square text-slate-950 text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-extrabold text-xl tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-purple-400">
+                        SONIC<span class="text-white">PULSE</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 font-mono">Interactive Synth & Sequencer Workstation</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 flex-wrap">
+                <!-- Audio Master Controls -->
+                <button id="btn-audio-init" class="cyber-button px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 hover:brightness-110">
+                    <i class="fa-solid fa-power-off"></i> 啟動聲學引擎 Engine Start
+                </button>
+                <div class="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-700/50">
+                    <i class="fa-solid fa-volume-high text-cyan-400 text-xs"></i>
+                    <input id="master-volume" type="range" min="0" max="1" step="0.01" value="0.7" class="w-20">
+                </div>
+                <!-- Project Storage Buttons -->
+                <button onclick="openSaveModal()" class="cyber-button px-3 py-2 text-xs font-semibold rounded-lg bg-fuchsia-600/30 border border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-600/40 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-floppy-disk text-fuchsia-400"></i> 儲存專案
+                </button>
+                <button onclick="openLoadModal()" class="cyber-button px-3 py-2 text-xs font-semibold rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-folder-open text-cyan-400"></i> 讀取專案
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl w-full mx-auto p-4 lg:p-6 flex-grow flex flex-col gap-6">
+
+        <!-- Visualizer & Canvas Section -->
+        <section class="relative rounded-2xl overflow-hidden glass-panel glass-panel-glow flex flex-col items-center justify-center min-h-[340px] lg:min-h-[400px]">
+            <canvas id="visualizer-canvas" class="w-full h-full absolute inset-0 z-0"></canvas>
+            
+            <div class="absolute top-4 left-4 z-10 flex gap-2">
+                <button id="btn-mode-wave" class="px-3 py-1.5 text-xs font-mono rounded-md bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 transition">
+                    <i class="fa-solid fa-chart-line"></i> 波形圖 (Wave)
+                </button>
+                <button id="btn-mode-spectrum" class="px-3 py-1.5 text-xs font-mono rounded-md bg-slate-800/80 border border-slate-700 text-slate-400 hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-chart-column"></i> 頻譜儀 (Bar)
+                </button>
+                <button id="btn-mode-particles" class="px-3 py-1.5 text-xs font-mono rounded-md bg-slate-800/80 border border-slate-700 text-slate-400 hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-circle-nodes"></i> 3D粒子 (Orb)
+                </button>
+            </div>
+
+            <div class="absolute top-4 right-4 z-10 flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-md border border-slate-800">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="canvas-status" class="text-xs font-mono text-slate-300">Visuals: Active</span>
+            </div>
+
+            <div id="start-overlay" class="z-10 text-center p-6 bg-slate-950/80 rounded-2xl border border-cyan-500/30 backdrop-blur-md max-w-md">
+                <div class="w-16 h-16 rounded-full bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                    <i class="fa-solid fa-compact-disc text-cyan-400 text-2xl"></i>
+                </div>
+                <h2 class="font-orbitron text-lg font-bold text-cyan-300 mb-2">點擊開啟音效體驗</h2>
+                <p class="text-xs text-slate-400 mb-4">按下方按鈕或鍵盤觸發合成器與 16-Step 音軌，享受即時視覺化效果。</p>
+                <button onclick="document.getElementById('btn-audio-init').click()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-fuchsia-500 text-slate-950 font-bold text-xs uppercase tracking-wider hover:opacity-90 transition">
+                    開啟 SonicPulse Audio Engine
+                </button>
+            </div>
+        </section>
+
+        <!-- Interactive Control Panel & Synth Pads -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Left 8 cols: Synth Pads & 16-Step Sequencer -->
+            <div class="lg:col-span-8 flex flex-col gap-6">
+                
+                <!-- Synth Pad Header -->
+                <div class="glass-panel p-4 rounded-xl flex flex-wrap justify-between items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-keyboard text-fuchsia-400"></i>
+                        <h3 class="font-orbitron font-semibold text-sm">Synthesizer Pad (鍵盤/觸控板)</h3>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="text-xs text-slate-400">音色 Preset:</label>
+                        <select id="preset-select" class="bg-slate-900 text-xs border border-slate-700 text-cyan-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-cyan-400">
+                            <option value="cyber">Cyberpunk Lead</option>
+                            <option value="ambient">Ambient Dream Pad</option>
+                            <option value="bass">Neon Retro SynthBass</option>
+                            <option value="8bit">Chiptune 8-Bit</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 8 Synth Keys -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <button data-note="261.63" data-key="A" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-cyan-500/20 hover:border-cyan-400 group">
+                        <span class="text-xl font-bold font-orbitron text-cyan-400 group-hover:scale-110 transition">C4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [A]</span>
+                    </button>
+                    <button data-note="293.66" data-key="S" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-cyan-500/20 hover:border-cyan-400 group">
+                        <span class="text-xl font-bold font-orbitron text-cyan-400 group-hover:scale-110 transition">D4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [S]</span>
+                    </button>
+                    <button data-note="329.63" data-key="D" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-cyan-500/20 hover:border-cyan-400 group">
+                        <span class="text-xl font-bold font-orbitron text-cyan-400 group-hover:scale-110 transition">E4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [D]</span>
+                    </button>
+                    <button data-note="349.23" data-key="F" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-cyan-500/20 hover:border-cyan-400 group">
+                        <span class="text-xl font-bold font-orbitron text-cyan-400 group-hover:scale-110 transition">F4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [F]</span>
+                    </button>
+                    <button data-note="392.00" data-key="G" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-fuchsia-500/20 hover:border-fuchsia-400 group">
+                        <span class="text-xl font-bold font-orbitron text-fuchsia-400 group-hover:scale-110 transition">G4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [G]</span>
+                    </button>
+                    <button data-note="440.00" data-key="H" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-fuchsia-500/20 hover:border-fuchsia-400 group">
+                        <span class="text-xl font-bold font-orbitron text-fuchsia-400 group-hover:scale-110 transition">A4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [H]</span>
+                    </button>
+                    <button data-note="493.88" data-key="J" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-fuchsia-500/20 hover:border-fuchsia-400 group">
+                        <span class="text-xl font-bold font-orbitron text-fuchsia-400 group-hover:scale-110 transition">B4</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [J]</span>
+                    </button>
+                    <button data-note="523.25" data-key="K" class="synth-key glass-panel p-3 rounded-xl flex flex-col items-center justify-center gap-1 h-24 border-fuchsia-500/20 hover:border-fuchsia-400 group">
+                        <span class="text-xl font-bold font-orbitron text-fuchsia-400 group-hover:scale-110 transition">C5</span>
+                        <span class="text-[10px] text-slate-400 font-mono">Key [K]</span>
+                    </button>
+                </div>
+
+                <!-- 16-Step Loop Sequencer -->
+                <div class="glass-panel p-5 rounded-xl flex flex-col gap-4">
+                    <div class="flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-cyan-400"></i>
+                            <h3 class="font-orbitron font-semibold text-sm">16-Step 循環音軌編排器 (Sequencer)</h3>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span id="seq-bpm-display" class="text-xs font-mono text-cyan-400">120 BPM</span>
+                            <button id="btn-seq-play" class="px-4 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 font-bold text-xs transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-play"></i> 播放循環
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sequencer Lanes -->
+                    <div class="flex flex-col gap-2">
+                        <!-- Lane 1: Synth Melody -->
+                        <div class="flex items-center gap-2">
+                            <span class="w-16 text-[10px] font-mono text-slate-400">Lead Synth</span>
+                            <div id="lane-synth" class="grid grid-cols-16 gap-1.5 flex-grow"></div>
+                        </div>
+                        <!-- Lane 2: Kick Drum -->
+                        <div class="flex items-center gap-2">
+                            <span class="w-16 text-[10px] font-mono text-slate-400">Kick Drum</span>
+                            <div id="lane-kick" class="grid grid-cols-16 gap-1.5 flex-grow"></div>
+                        </div>
+                        <!-- Lane 3: Hi-Hat -->
+                        <div class="flex items-center gap-2">
+                            <span class="w-16 text-[10px] font-mono text-slate-400">Hi-Hat FX</span>
+                            <div id="lane-hihat" class="grid grid-cols-16 gap-1.5 flex-grow"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right 4 cols: FX Tuning & Quick Drums -->
+            <div class="lg:col-span-4 flex flex-col gap-6">
+                
+                <!-- Audio FX Sliders -->
+                <div class="glass-panel p-5 rounded-xl flex flex-col gap-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-orbitron font-semibold text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-cyan-400"></i> Sound Effects & Filter
+                        </h3>
+                        <span class="text-[10px] text-slate-500 font-mono">DSP FX</span>
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Lowpass Filter Cutoff</span>
+                            <span id="filter-val" class="font-mono text-cyan-400">3000 Hz</span>
+                        </div>
+                        <input id="slider-filter" type="range" min="200" max="8000" step="50" value="3000">
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Echo Delay Time</span>
+                            <span id="delay-val" class="font-mono text-cyan-400">0.25 s</span>
+                        </div>
+                        <input id="slider-delay" type="range" min="0" max="0.8" step="0.05" value="0.25">
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Octave Shift</span>
+                            <span id="octave-val" class="font-mono text-cyan-400">0 Oct</span>
+                        </div>
+                        <input id="slider-octave" type="range" min="-1" max="1" step="1" value="0">
+                    </div>
+
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">Sequencer Tempo (BPM)</span>
+                            <span id="bpm-val" class="font-mono text-cyan-400">120 BPM</span>
+                        </div>
+                        <input id="slider-bpm" type="range" min="60" max="180" step="1" value="120">
+                    </div>
+                </div>
+
+                <!-- Instant Percussion Triggers -->
+                <div class="glass-panel p-5 rounded-xl flex flex-col gap-3">
+                    <h3 class="font-orbitron font-semibold text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-drum text-purple-400"></i> 實時打擊樂與特效
+                    </h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btn-drum-kick" class="py-3 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono font-bold hover:bg-slate-800 hover:border-cyan-500/50 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-circle text-cyan-400 text-xs"></i> KICK
+                        </button>
+                        <button id="btn-drum-snare" class="py-3 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono font-bold hover:bg-slate-800 hover:border-fuchsia-500/50 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-bolt text-fuchsia-400 text-xs"></i> SNARE
+                        </button>
+                        <button id="btn-drum-hihat" class="py-3 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono font-bold hover:bg-slate-800 hover:border-yellow-400/50 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-sparkles text-yellow-400 text-xs"></i> HI-HAT
+                        </button>
+                        <button id="btn-fx-laser" class="py-3 rounded-lg bg-slate-900 border border-slate-700/80 text-xs font-mono font-bold hover:bg-slate-800 hover:border-emerald-400/50 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-emerald-400 text-xs"></i> LASER
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full glass-panel border-t border-slate-800 py-4 px-6 text-center text-xs text-slate-500 mt-6">
+        <p>SonicPulse Audio Workstation &copy; 2026. LocalStorage Project Management Enabled.</p>
+    </footer>
+
+    <!-- Save Project Modal -->
+    <div id="save-modal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel p-6 rounded-2xl border border-cyan-500/40 max-w-md w-full flex flex-col gap-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-orbitron font-bold text-cyan-300 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-floppy-disk"></i> 儲存編曲專案至本機
+                </h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-slate-400">請輸入此專案的名稱，以便日後讀取或繼續編輯：</p>
+            <input id="save-project-name" type="text" placeholder="例如：我的電音傑作 #1" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400">
+            <div class="flex justify-end gap-2 mt-2">
+                <button onclick="closeModals()" class="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300 hover:bg-slate-700">取消</button>
+                <button onclick="saveProjectToLocalStorage()" class="px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs hover:brightness-110">確認儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Project Modal -->
+    <div id="load-modal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel p-6 rounded-2xl border border-cyan-500/40 max-w-lg w-full flex flex-col gap-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="font-orbitron font-bold text-cyan-300 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-folder-open"></i> 讀取本機已存專案
+                </h3>
+                <button onclick="closeModals()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-slate-400">選擇您先前儲存的音樂編曲專案：</p>
+            <div id="project-list-container" class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                <!-- Dynamically populated projects -->
+            </div>
+            <div class="flex justify-end mt-2">
+                <button onclick="closeModals()" class="px-4 py-2 rounded-lg bg-slate-800 text-xs text-slate-300 hover:bg-slate-700">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // --- Web Audio API & State ---
+        let audioCtx = null;
+        let masterGain = null;
+        let filterNode = null;
+        let delayNode = null;
+        let delayGain = null;
+        let analyser = null;
+        let isAudioInit = false;
+
+        // Visualizer Canvas
+        const canvas = document.getElementById('visualizer-canvas');
+        const ctx = canvas.getContext('2d');
+        let visMode = 'wave';
+        let particles = [];
+
+        // Presets
+        const presets = {
+            cyber: { oscType: 'sawtooth', attack: 0.01, release: 0.3 },
+            ambient: { oscType: 'sine', attack: 0.15, release: 0.8 },
+            bass: { oscType: 'triangle', attack: 0.02, release: 0.4 },
+            '8bit': { oscType: 'square', attack: 0.001, release: 0.15 }
+        };
+        let currentPreset = 'cyber';
+
+        // 16-Step Sequencer Data Structure (Arrays of 16 booleans/notes)
+        const sequencerData = {
+            synth: new Array(16).fill(false),
+            kick: new Array(16).fill(false),
+            hihat: new Array(16).fill(false)
+        };
+
+        let isSeqPlaying = false;
+        let currentStepIndex = 0;
+        let bpm = 120;
+        let seqTimer = null;
+
+        // Resize Canvas
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Init Audio Engine ---
+        function initAudioEngine() {
+            if (isAudioInit) return;
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = parseFloat(document.getElementById('master-volume').value);
+
+            filterNode = audioCtx.createBiquadFilter();
+            filterNode.type = 'lowpass';
+            filterNode.frequency.value = parseFloat(document.getElementById('slider-filter').value);
+
+            delayNode = audioCtx.createDelay();
+            delayNode.delayTime.value = parseFloat(document.getElementById('slider-delay').value);
+            delayGain = audioCtx.createGain();
+            delayGain.gain.value = 0.3;
+
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 512;
+
+            filterNode.connect(masterGain);
+            masterGain.connect(delayNode);
+            delayNode.connect(delayGain);
+            delayGain.connect(delayNode);
+            delayGain.connect(analyser);
+
+            masterGain.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            isAudioInit = true;
+            document.getElementById('start-overlay').style.display = 'none';
+            document.getElementById('btn-audio-init').className = "cyber-button px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-400 to-teal-600 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg";
+            document.getElementById('btn-audio-init').innerHTML = '<i class="fa-solid fa-check"></i> 聲學引擎已就緒';
+            
+            createBurstParticles(canvas.width / 2, canvas.height / 2, 40);
+        }
+
+        document.getElementById('btn-audio-init').addEventListener('click', initAudioEngine);
+
+        // --- Build Sequencer UI Grids ---
+        function buildSequencerGrid(laneName, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            for (let i = 0; i < 16; i++) {
+                const btn = document.createElement('button');
+                btn.className = `step-btn ${sequencerData[laneName][i] ? 'active' : ''}`;
+                btn.addEventListener('click', () => {
+                    sequencerData[laneName][i] = !sequencerData[laneName][i];
+                    btn.classList.toggle('active');
+                });
+                container.appendChild(btn);
+            }
+        }
+
+        function initSequencerGrids() {
+            buildSequencerGrid('synth', 'lane-synth');
+            buildSequencerGrid('kick', 'lane-kick');
+            buildSequencerGrid('hihat', 'lane-hihat');
+        }
+        initSequencerGrids();
+
+        // --- Play Note & Drums ---
+        function playTone(freq) {
+            if (!isAudioInit) initAudioEngine();
+            if (!audioCtx) return;
+
+            const octaveShift = parseInt(document.getElementById('slider-octave').value);
+            const actualFreq = freq * Math.pow(2, octaveShift);
+
+            const osc = audioCtx.createOscillator();
+            const noteGain = audioCtx.createGain();
+            const config = presets[currentPreset];
+
+            osc.type = config.oscType;
+            osc.frequency.setValueAtTime(actualFreq, audioCtx.currentTime);
+
+            const now = audioCtx.currentTime;
+            noteGain.gain.setValueAtTime(0, now);
+            noteGain.gain.linearRampToValueAtTime(0.4, now + config.attack);
+            noteGain.gain.exponentialRampToValueAtTime(0.0001, now + config.attack + config.release);
+
+            osc.connect(noteGain);
+            noteGain.connect(filterNode);
+
+            osc.start(now);
+            osc.stop(now + config.attack + config.release + 0.1);
+        }
+
+        function playDrum(type) {
+            if (!isAudioInit) initAudioEngine();
+            if (!audioCtx) return;
+            const now = audioCtx.currentTime;
+
+            if (type === 'kick') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.frequency.setValueAtTime(130, now);
+                osc.frequency.exponentialRampToValueAtTime(0.01, now + 0.3);
+                gain.gain.setValueAtTime(1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'snare') {
+                const bufferSize = audioCtx.sampleRate * 0.2;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.5, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+                noise.connect(noiseGain);
+                noiseGain.connect(masterGain);
+                noise.start(now);
+            } else if (type === 'hihat') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'highpass';
+                osc.frequency.setValueAtTime(7000, now);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'laser') {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(880, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.25);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+                osc.connect(gain);
+                gain.connect(masterGain);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+            createBurstParticles(canvas.width / 2, canvas.height / 2, 15);
+        }
+
+        // --- Sequencer Clock Engine ---
+        function startSequencer() {
+            if (!isAudioInit) initAudioEngine();
+            isSeqPlaying = !isSeqPlaying;
+
+            const playBtn = document.getElementById('btn-seq-play');
+            if (isSeqPlaying) {
+                playBtn.className = "px-4 py-1.5 rounded-lg bg-fuchsia-600 text-white font-bold text-xs transition flex items-center gap-1.5";
+                playBtn.innerHTML = '<i class="fa-solid fa-stop"></i> 停止循環';
+
+                const intervalMs = (60 / bpm / 4) * 1000; // 16th notes
+                currentStepIndex = 0;
+
+                seqTimer = setInterval(() => {
+                    // Remove previous step highlights
+                    document.querySelectorAll('.step-btn').forEach(el => el.classList.remove('current-step'));
+
+                    // Highlight current step in DOM
+                    const synthBtns = document.querySelectorAll('#lane-synth .step-btn');
+                    const kickBtns = document.querySelectorAll('#lane-kick .step-btn');
+                    const hihatBtns = document.querySelectorAll('#lane-hihat .step-btn');
+
+                    synthBtns[currentStepIndex].classList.add('current-step');
+                    kickBtns[currentStepIndex].classList.add('current-step');
+                    hihatBtns[currentStepIndex].classList.add('current-step');
+
+                    // Trigger sounds if active
+                    if (sequencerData.synth[currentStepIndex]) {
+                        const notes = [261.63, 329.63, 392.00, 523.25];
+                        playTone(notes[currentStepIndex % notes.length]);
+                    }
+                    if (sequencerData.kick[currentStepIndex]) playDrum('kick');
+                    if (sequencerData.hihat[currentStepIndex]) playDrum('hihat');
+
+                    currentStepIndex = (currentStepIndex + 1) % 16;
+                }, intervalMs);
+
+            } else {
+                clearInterval(seqTimer);
+                playBtn.className = "px-4 py-1.5 rounded-lg bg-cyan-500/20 border border-cyan-400/50 text-cyan-300 hover:bg-cyan-500/30 font-bold text-xs transition flex items-center gap-1.5";
+                playBtn.innerHTML = '<i class="fa-solid fa-play"></i> 播放循環';
+                document.querySelectorAll('.step-btn').forEach(el => el.classList.remove('current-step'));
+            }
+        }
+
+        document.getElementById('btn-seq-play').addEventListener('click', startSequencer);
+
+        // --- Controls & Sliders Listeners ---
+        document.getElementById('master-volume').addEventListener('input', (e) => {
+            if (masterGain) masterGain.gain.value = parseFloat(e.target.value);
+        });
+        document.getElementById('slider-filter').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('filter-val').innerText = `${val} Hz`;
+            if (filterNode) filterNode.frequency.value = parseFloat(val);
+        });
+        document.getElementById('slider-delay').addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById('delay-val').innerText = `${val} s`;
+            if (delayNode) delayNode.delayTime.value = parseFloat(val);
+        });
+        document.getElementById('slider-bpm').addEventListener('input', (e) => {
+            bpm = parseInt(e.target.value);
+            document.getElementById('bpm-val').innerText = `${bpm} BPM`;
+            document.getElementById('seq-bpm-display').innerText = `${bpm} BPM`;
+        });
+        document.getElementById('preset-select').addEventListener('change', (e) => {
+            currentPreset = e.target.value;
+        });
+
+        // Keyboard & Pad Listeners
+        const keys = document.querySelectorAll('.synth-key');
+        keys.forEach(key => {
+            key.addEventListener('mousedown', () => {
+                playTone(parseFloat(key.getAttribute('data-note')));
+                key.classList.add('active');
+                setTimeout(() => key.classList.remove('active'), 150);
+            });
+        });
+
+        const keyMap = { 'a': 261.63, 's': 293.66, 'd': 329.63, 'f': 349.23, 'g': 392.00, 'h': 440.00, 'j': 493.88, 'k': 523.25 };
+        window.addEventListener('keydown', (e) => {
+            if (e.repeat) return;
+            const k = e.key.toLowerCase();
+            if (keyMap[k]) {
+                playTone(keyMap[k]);
+                const el = document.querySelector(`[data-key="${k.toUpperCase()}"]`);
+                if (el) {
+                    el.classList.add('active');
+                    setTimeout(() => el.classList.remove('active'), 150);
+                }
+            }
+        });
+
+        document.getElementById('btn-drum-kick').addEventListener('click', () => playDrum('kick'));
+        document.getElementById('btn-drum-snare').addEventListener('click', () => playDrum('snare'));
+        document.getElementById('btn-drum-hihat').addEventListener('click', () => playDrum('hihat'));
+        document.getElementById('btn-fx-laser').addEventListener('click', () => playDrum('laser'));
+
+        // --- LOCAL STORAGE PROJECT MANAGEMENT ---
+        function openSaveModal() {
+            document.getElementById('save-modal').classList.remove('hidden');
+            document.getElementById('save-project-name').value = "我的專案 " + new Date().toLocaleTimeString();
+        }
+
+        function openLoadModal() {
+            renderProjectList();
+            document.getElementById('load-modal').classList.remove('hidden');
+        }
+
+        function closeModals() {
+            document.getElementById('save-modal').classList.add('hidden');
+            document.getElementById('load-modal').classList.add('hidden');
+        }
+
+        function saveProjectToLocalStorage() {
+            const name = document.getElementById('save-project-name').value.trim() || "未命名專案";
+            const projectData = {
+                name: name,
+                bpm: bpm,
+                preset: currentPreset,
+                sequencer: sequencerData,
+                updatedAt: new Date().toLocaleString()
+            };
+
+            let savedProjects = JSON.parse(localStorage.getItem('sonicpulse_projects') || '{}');
+            savedProjects[name] = projectData;
+            localStorage.setItem('sonicpulse_projects', JSON.stringify(savedProjects));
+
+            closeModals();
+            alert(`成功儲存專案：「${name}」！`);
+        }
+
+        function renderProjectList() {
+            const container = document.getElementById('project-list-container');
+            container.innerHTML = '';
+            const savedProjects = JSON.parse(localStorage.getItem('sonicpulse_projects') || '{}');
+            const keys = Object.keys(savedProjects);
+
+            if (keys.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">目前尚無任何已儲存的專案。</p>`;
+                return;
+            }
+
+            keys.forEach(name => {
+                const proj = savedProjects[name];
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between bg-slate-900/80 border border-slate-800 p-3 rounded-xl hover:border-cyan-500/40 transition";
+                item.innerHTML = `
+                    <div class="flex flex-col gap-0.5">
+                        <span class="font-bold text-xs text-cyan-300">${proj.name}</span>
+                        <span class="text-[10px] text-slate-500">更新時間：${proj.updatedAt} (BPM: ${proj.bpm})</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="loadProject('${name}')" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 text-xs hover:bg-cyan-500/30 font-semibold transition">載入</button>
+                        <button onclick="deleteProject('${name}')" class="px-2.5 py-1.5 rounded-lg bg-rose-500/20 text-rose-300 text-xs hover:bg-rose-500/30 transition"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function loadProject(name) {
+            const savedProjects = JSON.parse(localStorage.getItem('sonicpulse_projects') || '{}');
+            const proj = savedProjects[name];
+            if (!proj) return;
+
+            bpm = proj.bpm || 120;
+            currentPreset = proj.preset || 'cyber';
+            document.getElementById('slider-bpm').value = bpm;
+            document.getElementById('bpm-val').innerText = `${bpm} BPM`;
+            document.getElementById('seq-bpm-display').innerText = `${bpm} BPM`;
+            document.getElementById('preset-select').value = currentPreset;
+
+            if (proj.sequencer) {
+                sequencerData.synth = proj.sequencer.synth || new Array(16).fill(false);
+                sequencerData.kick = proj.sequencer.kick || new Array(16).fill(false);
+                sequencerData.hihat = proj.sequencer.hihat || new Array(16).fill(false);
+                initSequencerGrids();
+            }
+
+            closeModals();
+            alert(`成功載入專案：「${name}」！`);
+        }
+
+        function deleteProject(name) {
+            if (!confirm(`確定要刪除專案「${name}」嗎？`)) return;
+            let savedProjects = JSON.parse(localStorage.getItem('sonicpulse_projects') || '{}');
+            delete savedProjects[name];
+            localStorage.setItem('sonicpulse_projects', JSON.stringify(savedProjects));
+            renderProjectList();
+        }
+
+        // --- Visualizer Mode Buttons ---
+        document.getElementById('btn-mode-wave').addEventListener('click', function() { visMode = 'wave'; updateVisButtons(this); });
+        document.getElementById('btn-mode-spectrum').addEventListener('click', function() { visMode = 'spectrum'; updateVisButtons(this); });
+        document.getElementById('btn-mode-particles').addEventListener('click', function() { visMode = 'particles'; updateVisButtons(this); });
+
+        function updateVisButtons(activeBtn) {
+            [document.getElementById('btn-mode-wave'), document.getElementById('btn-mode-spectrum'), document.getElementById('btn-mode-particles')].forEach(btn => {
+                btn.className = "px-3 py-1.5 text-xs font-mono rounded-md bg-slate-800/80 border border-slate-700 text-slate-400 hover:bg-slate-700 transition";
+            });
+            activeBtn.className = "px-3 py-1.5 text-xs font-mono rounded-md bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 hover:bg-cyan-500/30 transition";
+        }
+
+        function createBurstParticles(x, y, count) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 1;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 3 + 1,
+                    color: i % 2 === 0 ? '#00f0ff' : '#ff007f',
+                    alpha: 1,
+                    life: Math.random() * 30 + 20
+                });
+            }
+        }
+
+        // --- Canvas Animation Loop ---
+        function renderVisualizer() {
+            requestAnimationFrame(renderVisualizer);
+
+            ctx.fillStyle = 'rgba(8, 9, 17, 0.25)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 1 / p.life;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            if (!analyser) {
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+                ctx.lineWidth = 2;
+                const time = Date.now() * 0.003;
+                for (let x = 0; x < canvas.width; x += 10) {
+                    const y = Math.sin(x * 0.01 + time) * 20 + canvas.height / 2;
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+                return;
+            }
+
+            const bufferLength = analyser.frequencyBinCount;
+
+            if (visMode === 'wave') {
+                const dataArray = new Uint8Array(bufferLength);
+                analyser.getByteTimeDomainData(dataArray);
+
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#00f0ff';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00f0ff';
+
+                ctx.beginPath();
+                const sliceWidth = canvas.width * 1.0 / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = v * canvas.height / 2;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                    x += sliceWidth;
+                }
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+            } else if (visMode === 'spectrum') {
+                const dataArray = new Uint8Array(bufferLength);
+                analyser.getByteFrequencyData(dataArray);
+
+                const barWidth = (canvas.width / bufferLength) * 2.5;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const barHeight = (dataArray[i] / 255) * canvas.height * 0.8;
+                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                    gradient.addColorStop(0, '#00f0ff');
+                    gradient.addColorStop(0.5, '#a855f7');
+                    gradient.addColorStop(1, '#ff007f');
+
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    x += barWidth + 2;
+                }
+            } else if (visMode === 'particles') {
+                const dataArray = new Uint8Array(bufferLength);
+                analyser.getByteFrequencyData(dataArray);
+                
+                let sum = 0;
+                for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+                const average = sum / bufferLength;
+
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = 50 + average * 0.8;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = `hsl(${average * 2}, 100%, 50%)`;
+                ctx.lineWidth = 4;
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff007f';
+                ctx.stroke();
+                ctx.restore();
+
+                if (average > 50 && Math.random() < 0.3) {
+                    createBurstParticles(centerX, centerY, 5);
+                }
+            }
+        }
+
+        window.onload = () => {
+            renderVisualizer();
+        };
+    </script>
+</body>
+</html>
